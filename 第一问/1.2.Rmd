@@ -1,0 +1,131 @@
+---
+title: '2'
+output:
+  html_document: default
+  pdf_document: default
+date: "2024-05-01"
+---
+# 数据建模（DESeqDataSetFromMatrix 和 DESeq）
+
+`DESeq2` 采用一个模型将基因表达数据建模为负二项分布，这是因为负二项分布能够有效地处理表达数据的过度离散性（即方差大于均值的现象）。核心的模型如下：
+
+$$
+Y_{ij} \sim NB(\mu_{ij}, \alpha_j)
+$$
+
+其中：
+
+- $Y_{ij}$ 是第 $i$ 个样本中第 $j$ 个基因的读数。
+- $\mu_{ij}$ 是该基因的期望读数，它依赖于样本的效应（如实验条件）和基因特有的效应。
+- $\alpha_j$ 是与第 $j$ 个基因相关的离散参数。
+
+期望读数 $\mu_{ij}$ 通常通过以下公式计算：
+
+$$
+\mu_{ij} = s_i \cdot q_{ij}
+$$
+
+- $s_i$ 是样本 $i$ 的大小因子，用于校正测序深度的不同。
+- $q_{ij}$ 是经过转换（对数变换）和模型拟合后的基因表达水平。
+
+## 差异表达分析
+
+`DESeq` 函数进行的分析基于对数比率检验（log-ratio test），是评估不同条件下基因表达的对数变化率。公式：
+
+$$
+\log_2\left(\frac{\mu_{ij,\text{Late}}}{\mu_{ij,\text{Early}}}\right)
+$$
+
+## 结果排序和P值
+
+`DESeq2` 提供的结果中，P值是通过Wald测试或似然比测试计算得出的，评估模型中的不同条件下的对数变化是否显著不为零。在处理完毕后，P值进行校正以控制多重比较问题，使用的是Benjamini-Hochberg方法来调整错误发现率（FDR）。
+
+## MA-Plot的绘制
+
+MA-plot是一种用于展示基因表达差异的图形，其中M代表对数变化率（log ratio），A代表平均表达水平的对数。
+
+```{r 差异基因获取, warning=FALSE, message=FALSE}
+library(DESeq2)
+early_stage <- read.csv("/Users/yooky/Desktop/建模/基因/附件2：EarlyStage_exp.csv", header=TRUE, row.names=1)
+later_stage <- read.csv("/Users/yooky/Desktop/建模/基因/附件3：LaterStage_exp.csv", header=TRUE, row.names=1)
+# 创建DESeq2矩阵格式
+countData <- cbind(early_stage, later_stage)
+colData <- data.frame(condition = factor(c(rep("Early", ncol(early_stage)), rep("Late", ncol(later_stage)))))
+
+dds <- DESeqDataSetFromMatrix(countData = countData, colData = colData, design = ~ condition)
+
+dds <- DESeq(dds)
+
+res <- results(dds)
+
+resOrdered <- res[order(res$pvalue),]
+
+write.csv(as.data.frame(resOrdered), file="/Users/yooky/Desktop/建模/基因/Differential_Expression_Results.csv")
+
+png(file="/Users/yooky/Desktop/建模/基因/MA-plot.png", width=1000, height=800)
+
+plotMA(dds, main="MA-plot", ylim=c(-2, 2))
+
+dev.off()
+
+```
+
+
+```{r 差异基因表达谱绘制, warning=FALSE, message=FALSE}
+
+sig_genes <- subset(resOrdered, padj < 0.05)  # 选择校正后P值小于0.05的基因
+
+# 准备数据
+merged_data <- cbind(early_stage, later_stage)
+
+# 绘制基因表达谱热图
+gene_heatmap <- function(merged_data, diff_genes) {
+  heatmap_data <- as.matrix(merged_data[rownames(merged_data) %in% rownames(diff_genes), ])
+  heatmap(heatmap_data, scale="row", Colv=NA, main="Gene Expression Heatmap")
+}
+
+# 绘制基因表达谱散点图
+gene_scatterplot <- function(merged_data, diff_genes) {
+  plot_data <- merged_data[rownames(merged_data) %in% rownames(diff_genes), ]
+  plot(t(plot_data), pch=16, col=ifelse(colnames(plot_data) %in% colnames(early_stage), "blue", "red"),
+       xlab="Sample", ylab="Expression", main="Gene Expression Scatterplot")
+  legend("topright", legend=c("Early Stage", "Late Stage"), col=c("blue", "red"), pch=16)
+}
+
+# 调用函数绘制基因表达谱热图
+gene_heatmap(merged_data, sig_genes)
+
+# 调用函数绘制基因表达谱散点图
+gene_scatterplot(merged_data, sig_genes)
+
+```
+
+# 基因表达热图分析结论
+
+## 1. 基因表达分布
+- **高表达基因**：部分基因，如 `SERPINE2` 和 `RTN4` 在多数样本中显示较高的表达水平，呈现深色。`SERPINE2` 与细胞外基质和血管生物学过程相关，在组织重塑和修复相关的病理状态中起重要作用。
+- **低表达基因**：如 `GRINA` 和 `RPL19` 在大部分样本中表达较低，显示为浅色。`RPL19` 是一种核糖体蛋白，通常与基础的细胞代谢活动相关，其低表达可能影响蛋白质合成。
+
+## 2. 潜在的生物学意义
+- **关键基因的作用**：如 `ANUBL1`、`FITM2` 和 `CYP26B1` 在特定样本中高表达，表明它们在特定生物学过程或病理状态中起重要作用。如，`CYP26B1` 是维生素A代谢的重要酶，其表达模式可能影响细胞增殖和分化。
+- **疾病相关基因**：例如，`SERPINE2` 和 `RTN4` 可能与炎症和神经生物学疾病相关联，其在多个样本中的高表达可能与病理过程有关。
+
+##3. 潜在的治疗标靶
+- 对于表达水平在疾病状态样本中显著改变的基因，如 `PSMC6`、`FGD6` 和 `EBAG9`，可以进一步探索其作为治疗靶点的潜力。特别是在它们表达显著增高的样本中，这些基因可能是治疗干预的有价值目标。
+
+
+# 基因表达散点图分析
+
+## 图的解读
+- **图表说明**：散点图展示了两组样本（早期和晚期）的基因表达水平。x轴代表样本编号，y轴代表基因表达的数值。
+
+## 分析点
+1. **基因表达水平的差异**：
+   - 从图中可以看出，大多数早期阶段的样本（蓝点）和晚期阶段的样本（红点）在表达水平上存在一定的重叠，但晚期样本的表达范围更广，最高点达到约1800，而早期样本最高点约为1400。
+   - 这表明晚期样本的基因表达水平可能更为活跃或波动更大。
+
+2. **样本分布**：
+   - 样本分布在基因表达水平上显得相对集中，尤其是在1000到1400的表达范围内。然而，晚期样本中有一些极端值出现在更高的表达水平（1400以上）。
+   - 晚期样本在低表达区（600到800）也呈现出更多的点，可能表明某些基因在晚期阶段被下调。
+
+

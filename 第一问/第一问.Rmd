@@ -1,0 +1,288 @@
+---
+title: '2'
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+date: "2024-05-01"
+---
+# 数据建模（DESeqDataSetFromMatrix 和 DESeq）
+
+`DESeq2` 采用一个模型将基因表达数据建模为负二项分布，这是因为负二项分布能够有效地处理表达数据的过度离散性（即方差大于均值的现象）。核心的模型如下：
+
+$$
+Y_{ij} \sim NB(\mu_{ij}, \alpha_j)
+$$
+
+其中：
+
+- $Y_{ij}$ 是第 $i$ 个样本中第 $j$ 个基因的读数。
+- $\mu_{ij}$ 是该基因的期望读数，它依赖于样本的效应（如实验条件）和基因特有的效应。
+- $\alpha_j$ 是与第 $j$ 个基因相关的离散参数。
+
+期望读数 $\mu_{ij}$ 通常通过以下公式计算：
+
+$$
+\mu_{ij} = s_i \cdot q_{ij}
+$$
+
+- $s_i$ 是样本 $i$ 的大小因子，用于校正测序深度的不同。
+- $q_{ij}$ 是经过转换（对数变换）和模型拟合后的基因表达水平。
+
+## 差异表达分析
+
+`DESeq` 函数进行的分析基于对数比率检验（log-ratio test），是评估不同条件下基因表达的对数变化率。公式：
+
+$$
+\log_2\left(\frac{\mu_{ij,\text{Late}}}{\mu_{ij,\text{Early}}}\right)
+$$
+
+## 结果排序和P值
+
+`DESeq2` 提供的结果中，P值是通过Wald测试或似然比测试计算得出的，评估模型中的不同条件下的对数变化是否显著不为零。在处理完毕后，P值进行校正以控制多重比较问题，使用的是Benjamini-Hochberg方法来调整错误发现率（FDR）。
+
+## MA-Plot的绘制
+
+MA-plot是一种用于展示基因表达差异的图形，其中M代表对数变化率（log ratio），A代表平均表达水平的对数。
+
+```{r 差异基因获取1, warning=FALSE, message=FALSE}
+library(DESeq2)
+
+# 读取数据
+early_stage <- read.csv("/Users/yooky/Desktop/建模/基因/附件2：EarlyStage_exp.csv", header=TRUE, row.names=1)
+normal_stage <- read.csv("/Users/yooky/Desktop/建模/基因/附件1：Normal_exp.csv", header=TRUE, row.names=1)
+
+# 创建DESeq2矩阵格式
+countData <- cbind(normal_stage, early_stage)
+colData <- data.frame(condition = factor(c(rep("Normal", ncol(normal_stage)), rep("Early", ncol(early_stage)))))
+
+# 构建DESeq对象
+dds <- DESeqDataSetFromMatrix(countData = countData, colData = colData, design = ~ condition)
+dds <- DESeq(dds)
+
+# 获取差异表达基因
+res <- results(dds)
+
+# 筛选padj<0.05的基因
+significant_genes <- res[res$padj < 0.05, ]
+
+# 将结果写入CSV文件
+write.csv(as.data.frame(significant_genes), file="/Users/yooky/Desktop/建模/基因/Differential_Expression_Early_Normal.csv")
+
+# 生成MA-plot
+plotMA(dds, main="MA-plot", ylim=c(-2, 2))
+
+```
+
+
+```{r 火山图绘制1, warning=FALSE, message=FALSE}
+volcano_plot <- function(res, title) {
+  # 定义显著性阈值
+  alpha <- 0.05
+  log2_fc_threshold <- 1
+  log_p_threshold <- -log10(alpha)
+
+  # 计算每个点是否显著
+  significant <- res$padj < alpha & abs(res$log2FoldChange) > log2_fc_threshold
+
+  # 进一步根据 -log10(padj) 值决定颜色
+  point_colors <- ifelse(res$padj < alpha, ifelse(-log10(res$padj) > log_p_threshold, "red", "blue"), "gray")
+
+  # 绘制火山图
+  plot(res$log2FoldChange, -log10(res$padj),
+       pch=20,
+       col=point_colors,  # 使用显著性来设定颜色
+       xlab="Log2 Fold Change",
+       ylab="-log10(Adjusted p-value)",
+       main=title)
+  
+  # 添加显著性阈值线
+  abline(h=log_p_threshold, col="red", lty=2)  # 红色线表示p-value阈值
+  abline(v=c(-log2_fc_threshold, log2_fc_threshold), col="black", lty=2)  # 黑色线表示Fold Change阈值
+  
+  # 添加图例
+  legend("topright", legend=c("Not Significant", "Significant Above", "Significant Below"), 
+         col=c("gray", "red", "blue"), pch=20)
+}
+if ("padj" %in% colnames(res) && "log2FoldChange" %in% colnames(res)) {
+  volcano_plot(res, title="Volcano Plot of Differential Expression (Early vs Later)")
+} else {
+  print("The data object 'res' does not have the necessary columns.")
+}
+
+```
+
+```{r }
+library(pheatmap)
+# 筛选padj<0.05的基因并排序
+significant_genes <- res[res$padj < 0.05, ]
+top_genes <- head(significant_genes[order(significant_genes$padj), ], 10)
+
+# 获取顶部基因的名称
+top_gene_names <- rownames(top_genes)
+
+# 提取这些基因的表达数据
+top_gene_data <- assay(dds)[top_gene_names, ]
+
+
+# 确保colData中包含正确的注释信息
+colData <- data.frame(condition = factor(c(rep("Normal", ncol(normal_stage)), rep("Early", ncol(early_stage)))),
+                      row.names = colnames(countData))
+
+# 绘制热图
+pheatmap(log2(top_gene_data + 1), 
+         scale = "row", 
+         clustering_distance_rows = "correlation",
+         clustering_distance_cols = "correlation",
+         annotation_col = colData,  # 确保这里的colData已经正确设置
+         show_rownames = TRUE,
+         show_colnames = FALSE,
+         main = "Heatmap of Top 10 Significant Genes")
+
+```
+
+# 基因表达数据可视化分析
+
+## 1. MA-plot（平均值与对数比值图）
+
+### 图像描述
+此图显示的是基因表达变化的对数比值（log fold change）与基因表达水平的平均值的关系。蓝色点代表各个基因。
+
+### 分析结论
+大部分基因表达变化较大（log fold change 远离0）。有一些基因表现出显著的上调或下调（位于两条灰色水平线之外的点）。
+
+## 2. 火山图（Volcano Plot）
+
+### 图像描述
+火山图展示了基因表达变化的显著性（纵轴为调整后的p值的负对数）与表达变化大小（横轴为对数变化倍数）的关系。红色点代表显著的基因。
+
+### 分析结论
+图中显著上调（右侧）和显著下调（左侧）的基因数量多，表明在正常与早期癌症病人之间存在大量显著差异表达的基因。这些基因可能涉及癌症发展的重要生物学过程或途径。
+
+## 3. 热图（Heatmap of Top 10 Significant Genes）
+
+### 图像描述
+此热图显示了筛选出的差异表达最显著的10个基因在所有样本中的表达水平。颜色越暖（红色）表示表达量越高，颜色越冷（蓝色）表示表达量越低。
+
+### 分析结论
+从热图中可以看出，选出的基因在不同条件（正常与早期）下表现出明显的表达模式差异（颜色分界明显），表明这些基因可能在癌症发展早期起重要作用。
+
+```{r 差异基因获取2, warning=FALSE, message=FALSE}
+library(DESeq2)
+
+# 读取数据
+early_stage <- read.csv("/Users/yooky/Desktop/建模/基因/附件2：EarlyStage_exp.csv", header=TRUE, row.names=1)
+later_stage <- read.csv("/Users/yooky/Desktop/建模/基因/附件3：LaterStage_exp.csv", header=TRUE, row.names=1)
+
+# 创建DESeq2矩阵格式
+countData <- cbind(early_stage, later_stage)
+colData <- data.frame(condition = factor(c(rep("Early", ncol(early_stage)), rep("Later", ncol(later_stage)))))
+
+
+# 构建DESeq对象
+dds <- DESeqDataSetFromMatrix(countData = countData, colData = colData, design = ~ condition)
+dds <- DESeq(dds)
+
+# 获取差异表达基因
+res <- results(dds)
+
+# 筛选padj<0.05的基因
+significant_genes <- res[res$padj < 0.05, ]
+
+# 将结果写入CSV文件
+write.csv(as.data.frame(significant_genes), file="/Users/yooky/Desktop/建模/基因/Differential_Expression_Early_Later.csv")
+
+# 生成MA-plot
+plotMA(dds, main="MA-plot", ylim=c(-2, 2))
+
+```
+
+
+```{r 火山图绘制2, warning=FALSE, message=FALSE}
+volcano_plot <- function(res, title) {
+  # 定义显著性阈值
+  alpha <- 0.05
+  log2_fc_threshold <- 1
+  log_p_threshold <- -log10(alpha)
+
+  # 计算每个点是否显著
+  significant <- res$padj < alpha & abs(res$log2FoldChange) > log2_fc_threshold
+
+  # 进一步根据 -log10(padj) 值决定颜色
+  point_colors <- ifelse(res$padj < alpha, ifelse(-log10(res$padj) > log_p_threshold, "red", "blue"), "gray")
+
+  # 绘制火山图
+  plot(res$log2FoldChange, -log10(res$padj),
+       pch=20,
+       col=point_colors,  # 使用显著性来设定颜色
+       xlab="Log2 Fold Change",
+       ylab="-log10(Adjusted p-value)",
+       main=title)
+  
+  # 添加显著性阈值线
+  abline(h=log_p_threshold, col="red", lty=2)  # 红色线表示p-value阈值
+  abline(v=c(-log2_fc_threshold, log2_fc_threshold), col="black", lty=2)  # 黑色线表示Fold Change阈值
+  
+  # 添加图例
+  legend("topright", legend=c("Not Significant", "Significant Above", "Significant Below"), 
+         col=c("gray", "red", "blue"), pch=20)
+}
+
+# 绘制火山图
+volcano_plot(res, title="Volcano Plot of Differential Expression (Early vs Later)")
+
+
+```
+
+```{r }
+library(pheatmap)
+# 筛选padj<0.05的基因并排序
+significant_genes <- res[res$padj < 0.05, ]
+top_genes <- head(significant_genes[order(significant_genes$padj), ], 10)
+
+# 获取顶部基因的名称
+top_gene_names <- rownames(top_genes)
+
+# 提取这些基因的表达数据
+top_gene_data <- assay(dds)[top_gene_names, ]
+
+# 确保colData中包含正确的注释信息
+colData <- data.frame(condition = factor(c(rep("Early", ncol(early_stage)), rep("Later", ncol(later_stage)))),
+                      row.names = colnames(countData))
+
+# 绘制热图
+pheatmap(log2(top_gene_data + 1), 
+         scale = "row", 
+         clustering_distance_rows = "correlation",
+         clustering_distance_cols = "correlation",
+         annotation_col = colData,  # 确保这里的colData已经正确设置
+         show_rownames = TRUE,
+         show_colnames = FALSE,
+         main = "Heatmap of Top 10 Significant Genes")
+
+```
+
+# 基因表达数据可视化分析
+
+## 1. MA-plot（平均值与对数比值图）
+
+### 分析结论
+大部分基因表达变化较小（log fold change 接近0）。变化较大的是疾病发展中的关键基因。
+
+## 2. 火山图（Volcano Plot）
+
+### 分析结论
+从疾病早期到晚期，差异表达的基因数量明显少于从正常时期到疾病早期的差异基因数量。
+
+## 3. 热图（Heatmap of Top 10 Significant Genes）
+
+### 分析结论
+从热图中可以看出，选出的基因在癌症晚期（早期与晚期）下表现出明显的表达模式差异，这些基因在早期与晚期表达多有不同，但差异变化不如癌症早期（正常与早期）明显。
+
+# 问题：
+在癌症的早期与晚期，分别是哪些基因的表达发生了较为显著的变化，这些基因之间的关系如何？
+
+# 结论：
+在热图中，我们筛选出了在癌症早期和晚期中差异表达排名前10的基因。在早期阶段，这些显著差异的基因包括（...热图中的10个...）等。这些基因在早期癌症阶段表达的显著变化可能反映了肿瘤细胞的初始适应和生长信号的激活。
+
+相比之下，在癌症晚期，虽然基因表达也发生了变化，但这种变化的幅度相对较小。在晚期阶段，排名前10的基因可能包括（...热图中的10个...）等。这些基因的表达变化可能更多地与疾病过程中细胞信号传导的复杂互动相关，而非初期的癌症。

@@ -1,0 +1,52 @@
+---
+title: "第二问"
+output: html_document
+date: "2024-05-02"
+---
+
+```{r 差异基因获取, warning=FALSE, message=FALSE}
+library(DESeq2)
+early_stage <- read.csv("/Users/yooky/Desktop/建模/基因/第二问/附件2：EarlyStage_exp.csv", header=TRUE, row.names=1)
+normal_stage <- read.csv("/Users/yooky/Desktop/建模/基因/第二问/附件1：Normal_exp.csv", header=TRUE, row.names=1)
+# 创建DESeq2矩阵格式
+countData <- cbind(early_stage, normal_stage)
+colData <- data.frame(condition = factor(c(rep("Early", ncol(early_stage)), rep("Normal", ncol(normal_stage)))))
+
+dds <- DESeqDataSetFromMatrix(countData = countData, colData = colData, design = ~ condition)
+
+dds <- DESeq(dds)
+
+res <- results(dds)
+
+resOrdered <- res[order(res$pvalue),]
+
+write.csv(as.data.frame(resOrdered), file="/Users/yooky/Desktop/建模/基因/第二问/Differential_Expression_Results.csv")
+
+png(file="/Users/yooky/Desktop/建模/基因/第二问/MA-plot.png", width=1000, height=800)
+
+plotMA(dds, main="MA-plot", ylim=c(-2, 2))
+
+dev.off()
+
+```
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

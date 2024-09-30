@@ -1,0 +1,144 @@
+---
+title: "第三问第二步"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+date: "2024-05-02"
+---
+
+```{r 差异基因获取1, warning=FALSE, message=FALSE}
+library(DESeq2)
+library(data.table)
+
+# 读取基因表达数据和聚类结果
+expr_data_path <- "/Users/yooky/Desktop/建模/基因/第三问/附件2：EarlyStage_exp.csv"
+cluster_data_path <- "/Users/yooky/Desktop/建模/基因/第三问/Clustered_Early_Stage_Results.csv"
+
+expr_data <- fread(expr_data_path, data.table = FALSE)
+cluster_data <- fread(cluster_data_path, data.table = FALSE)
+
+# 保存基因符号
+gene_symbols <- expr_data$V1
+
+# 移除包含基因名的列但不设置为行名
+expr_data <- expr_data[, -1]
+
+# 确保样本名与聚类结果匹配
+cluster_data <- cluster_data[match(colnames(expr_data), cluster_data$`Sample Name`), ]
+
+if (any(is.na(cluster_data$Cluster))) {
+  stop("Some samples in expression data do not have matching cluster information.")
+}
+
+# 准备 DESeq2 需要的 colData
+colData <- data.frame(cluster = factor(cluster_data$Cluster), row.names = colnames(expr_data))
+
+# 构建 DESeqDataSet 对象
+dds <- DESeqDataSetFromMatrix(countData = expr_data,
+                              colData = colData,
+                              design = ~ cluster)
+
+# 运行 DESeq2 分析
+dds <- DESeq(dds)
+
+# 获取差异表达分析结果
+results12 <- results(dds, contrast = c("cluster", "1", "0"))
+
+# 将基因符号添加到结果中
+sig_genes12 <- as.data.frame(results12)
+sig_genes12$Gene <- gene_symbols
+
+# 筛选出显著差异表达的基因
+sig_genes12 <- subset(sig_genes12, padj < 0.05)
+
+# 确保基因符号作为第一列
+sig_genes12 <- sig_genes12[, c("Gene", setdiff(names(sig_genes12), "Gene"))]
+
+# 保存显著差异表达的基因结果
+write.csv(sig_genes12, file = "/Users/yooky/Desktop/建模/基因/第三问/significant_genes_clusters_early.csv", row.names = FALSE)
+
+
+
+```
+
+```{r }
+library(ggplot2)
+
+# 绘制火山图
+ggplot(results12, aes(x = log2FoldChange, y = -log10(padj), color = ifelse(padj < 0.05, "red", "blue"))) +
+  geom_point() +
+  scale_color_manual(values = c("red" = "red", "blue" = "blue")) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +  # 添加显著性阈值线
+  labs(x = "log2 Fold Change", y = "-log10(Adjusted p-value)", title = "Volcano Plot of Differential Gene Expression") +
+  theme_minimal()
+
+```
+
+
+
+```{r 差异基因获取2, warning=FALSE, message=FALSE}
+library(DESeq2)
+library(data.table)
+
+# 读取基因表达数据和聚类结果
+expr_data_path <- "/Users/yooky/Desktop/建模/基因/第三问/附件3：LaterStage_exp.csv"
+cluster_data_path <- "/Users/yooky/Desktop/建模/基因/第三问/Clustered_Later_Stage_Results.csv"
+
+expr_data <- fread(expr_data_path, data.table = FALSE)
+cluster_data <- fread(cluster_data_path, data.table = FALSE)
+
+# 保存基因符号
+gene_symbols <- expr_data$V1
+
+# 移除包含基因名的列但不设置为行名
+expr_data <- expr_data[, -1]
+
+# 确保样本名与聚类结果匹配
+cluster_data <- cluster_data[match(colnames(expr_data), cluster_data$`Sample Name`), ]
+
+if (any(is.na(cluster_data$Cluster))) {
+  stop("Some samples in expression data do not have matching cluster information.")
+}
+
+# 准备 DESeq2 需要的 colData
+colData <- data.frame(cluster = factor(cluster_data$Cluster), row.names = colnames(expr_data))
+
+# 构建 DESeqDataSet 对象
+dds <- DESeqDataSetFromMatrix(countData = expr_data,
+                              colData = colData,
+                              design = ~ cluster)
+
+# 运行 DESeq2 分析
+dds <- DESeq(dds)
+
+# 获取差异表达分析结果
+results12 <- results(dds, contrast = c("cluster", "1", "0"))
+
+# 将基因符号添加到结果中
+sig_genes12 <- as.data.frame(results12)
+sig_genes12$Gene <- gene_symbols
+
+# 筛选出显著差异表达的基因
+sig_genes12 <- subset(sig_genes12, padj < 0.05)
+
+# 确保基因符号作为第一列
+sig_genes12 <- sig_genes12[, c("Gene", setdiff(names(sig_genes12), "Gene"))]
+
+# 保存显著差异表达的基因结果
+write.csv(sig_genes12, file = "/Users/yooky/Desktop/建模/基因/第三问/significant_genes_clusters_later.csv", row.names = FALSE)
+```
+
+
+```{r }
+library(ggplot2)
+
+# 绘制火山图
+ggplot(results12, aes(x = log2FoldChange, y = -log10(padj), color = ifelse(padj < 0.05, "red", "blue"))) +
+  geom_point() +
+  scale_color_manual(values = c("red" = "red", "blue" = "blue")) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +  # 添加显著性阈值线
+  labs(x = "log2 Fold Change", y = "-log10(Adjusted p-value)", title = "Volcano Plot of Differential Gene Expression") +
+  theme_minimal()
+
+```
