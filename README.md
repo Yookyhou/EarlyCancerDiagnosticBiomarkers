@@ -1,36 +1,36 @@
-# 癌症早诊标记物设计及其演化机理认知
+# Design of Early Cancer Diagnosis Markers and Understanding of Their Evolution Mechanisms
 
-癌症是一种遗传变异相关的疾病。在很多情况下，患者在确诊时已经处于疾病的中晚期，错过了治疗的最佳时机。因此，如何开展面向癌症早期的诊断标记物，一直以来都是临床医学面临的主要难题之一。
+Cancer is a disease associated with genetic variations. In many cases, patients are already in the mid to late stages of the disease at the time of diagnosis, missing the optimal treatment window. Therefore, developing diagnostic markers aimed at early cancer detection has long been one of the main challenges in clinical medicine.
 
-目前的癌症诊断及病理分期判定，主要依赖于肿瘤大小、肿瘤是否转移、患者的生化指标、临床病理图像分析等手段。这些方法非常依赖检测的精准度和医生的临床经验。而根据生物学中心法则可知，基因是决定表观性状变化的根本因素。患者的肿瘤状态变化、生化指标变化或病理图像的异常，往往会晚于基因数据的异常。因此，通过对基因数据的分析，有可能更早发现癌症，为疾病的早诊提供新的思路，也能够为深入了解癌症发生发展的机理提供更深的见解。
+Current cancer diagnosis and pathological staging mainly rely on tumor size, whether the tumor has metastasized, the patient's biochemical indicators, clinical pathological image analysis, and other means. These methods are highly dependent on the accuracy of the tests and the clinical experience of the doctors. According to the central dogma of biology, genes are the fundamental factors that determine phenotypic changes. Changes in a patient's tumor status, biochemical indicators, or pathological image abnormalities often occur later than abnormalities in gene data. Therefore, analyzing gene data may allow for earlier cancer detection, providing new ideas for early diagnosis and deeper insights into the mechanisms of cancer development.
 
-基因表达数据是一种常见的基因相关数据，反映了基因转录产物（如信使RNA，mRNA）在细胞中的表达丰度。这些数据可以用于分析不同条件下哪些基因的表达发生了改变、基因的活动如何受外界条件变化的影响、以及基因之间的共表达关系。这些数据对临床诊断标记物设计、癌症发生发展的机制认知等有重要作用。
+Gene expression data is a common type of gene-related data that reflects the abundance of gene transcription products (such as messenger RNA, mRNA) in cells. This data can be used to analyze which genes' expressions change under different conditions, how gene activity is influenced by external conditions, and the co-expression relationships between genes. This data plays an important role in the design of clinical diagnostic markers and understanding the mechanisms of cancer occurrence and development.
 
-## 问题描述
+## Problem Description
 
-请根据题目所提供的数据，回答下列问题：
+Based on the data provided in the title, please answer the following questions:
 
-1. **癌症早期与晚期**，分别有哪些基因的表达发生了显著变化？这些基因之间的关系如何？
-2. **诊断标记物设计**：哪些基因或基因间的关系能够作为诊断标记物，来判定或分析患者的病理状态？请给出具体的量化指标或特征集合，并评价设计的诊断标记物的识别准确性，尤其是早期癌症诊断标记物。
-3. **异质性处理**：如何在分析过程中尽可能消除不同患者之间的异质性影响？
+1. **Early vs. Late Stage Cancer**: Which genes show significant expression changes in early and late stages? How are these genes related to each other?
+2. **Diagnostic Marker Design**: Which genes or relationships between genes can serve as diagnostic markers to determine or analyze the patient's pathological status? Please provide specific quantitative indicators or feature sets, and evaluate the recognition accuracy of the designed diagnostic markers, especially for early cancer diagnosis.
+3. **Heterogeneity Handling**: How can the impact of heterogeneity between different patients be minimized during the analysis process?
 
-## 名词解释
+## Terminology
 
-- **基因表达数据**：基因转录产物在细胞中的表达丰度，描述当前基因的活跃状态。
-- **生物标记物（诊断标记物）**：用于判定患者病理状态的特征，可以是某个或某些基因的表达值，也可以是基因表达关系的量化值。生物标记物通常越精简越好，以节省检测成本。
-- **异质性**：描述数据间差异程度。即使患者处于同一种病理阶段，基因表达数据、生化指标和医学影像数据也可能存在较大差异，给数据分析带来挑战。
+- **Gene Expression Data**: The abundance of gene transcription products in cells, describing the current active state of genes.
+- **Biomarkers (Diagnostic Markers)**: Features used to determine the patient's pathological status, which can be the expression values of one or several genes or quantitative values of gene expression relationships. Biomarkers are typically better when they are more concise to save testing costs.
+- **Heterogeneity**: Describes the degree of variation between data. Even if patients are in the same pathological stage, there may be significant differences in gene expression data, biochemical indicators, and medical imaging data, posing challenges for data analysis.
 
-## 数据文件说明
+## Data File Description
 
-- **Normal_exp.csv**：正常人的基因表达数据
-- **EarlyStage_exp.csv**：早期患者的基因表达数据
-- **LaterStage_exp.csv**：晚期患者的基因表达数据
+- **Normal_exp.csv**: Gene expression data from normal individuals
+- **EarlyStage_exp.csv**: Gene expression data from early-stage patients
+- **LaterStage_exp.csv**: Gene expression data from late-stage patients
 
-**数据格式**：  
-- 第一行为表头，包含各个患者的样本ID（第一列除外）
-- 第一列为基因名称，第二列至最后一列为各个患者的基因表达值
+**Data Format**:  
+- The first row is the header, containing sample IDs for each patient (except the first column).
+- The first column contains gene names, and columns two through the last column contain the gene expression values for each patient.
 
-## 参考文献
+## References
 
 1. [Gene Expression Profile Analysis (MathWorks)](https://ww2.mathworks.cn/help/bioinfo/ug/gene-expression-profile-analysis.html?requestedDomain=cn)
 2. Langfelder, P., & Horvath, S. WGCNA: an R package for weighted correlation network analysis. *BMC Bioinformatics*, 9, 559 (2008). [https://doi.org/10.1186/1471-2105-9-559](https://doi.org/10.1186/1471-2105-9-559)
